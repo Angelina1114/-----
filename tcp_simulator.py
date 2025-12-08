@@ -166,6 +166,14 @@ class TCPSimulator:
             'packet': packet,
             'status': status
         })
+        # 丟包事件記錄到 metric_history，方便圖表標記
+        if status == "LOST":
+            self.metric_history.append({
+                'type': 'EVENT',
+                'event': 'loss',
+                'seq': packet.seq_num,
+                'time': time.time()
+            })
         
     def _on_metric_change(self, metric_name: str, value: float, timestamp: float):
         """記錄指標變化"""
@@ -220,21 +228,44 @@ class TCPSimulator:
     def update(self):
         """更新模擬器"""
         self.network.update()
+
+        def _route_target(item, fallback_client, fallback_server):
+            """依據封包/字典決定目的連接"""
+            packet = item['packet'] if isinstance(item, dict) else item
+            dest_port = item.get('dest') if isinstance(item, dict) else None
+            if dest_port is not None:
+                if self.server and dest_port == self.server.local_port:
+                    return self.server
+                if self.client and dest_port == self.client.local_port:
+                    return self.client
+            # 無 dest 時以封包 source_port 判斷方向
+            if self.client and packet.source_port == self.client.local_port:
+                return fallback_server
+            return fallback_client
         
         # 檢查超時並處理重傳
         if self.client:
             retransmit_packets = self.client.check_timeouts()
-            for packet in retransmit_packets:
-                # 重傳數據包
-                target = self.server
-                self.network.transmit_packet(packet, target)
+            for item in retransmit_packets:
+                packet = item['packet'] if isinstance(item, dict) else item
+                target = _route_target(item, self.client, self.server)
+                if target:
+                    self.network.transmit_packet(packet, target)
+            # pacing 依 cwnd 發送緩衝資料
+            paced_list = self.client.drain_send_buffer()
+            for p in paced_list:
+                self.network.transmit_packet(p, self.server)
         
         if self.server:
             retransmit_packets = self.server.check_timeouts()
-            for packet in retransmit_packets:
-                # 重傳數據包
-                target = self.client
-                self.network.transmit_packet(packet, target)
+            for item in retransmit_packets:
+                packet = item['packet'] if isinstance(item, dict) else item
+                target = _route_target(item, self.server, self.client)
+                if target:
+                    self.network.transmit_packet(packet, target)
+            paced_list = self.server.drain_send_buffer()
+            for p in paced_list:
+                self.network.transmit_packet(p, self.client)
     
     def get_history(self) -> List[Dict]:
         """獲取歷史記錄"""

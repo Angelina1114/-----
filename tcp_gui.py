@@ -371,11 +371,15 @@ class TCPSimulatorGUI:
             cwnds = []
             times_ssthresh = []
             ssthreshs = []
+            # 事件標記
+            event_times = {'loss': [], 'rto': [], 'fast': []}
+            event_vals = {'loss': [], 'rto': [], 'fast': []}
+            last_cwnd = None
             
             # 找到開始時間以計算相對時間
             start_time = None
             for record in history:
-                if record.get('type') == 'METRIC':
+                if record.get('type') in ('METRIC', 'EVENT'):
                     if start_time is None:
                         start_time = record.get('time', 0)
                     break
@@ -384,19 +388,34 @@ class TCPSimulatorGUI:
                 start_time = time.time()
             
             for record in history:
-                if record.get('type') != 'METRIC':
-                    continue
-                record_time = record.get('time', 0)
-                rel_time = record_time - start_time
-                metric = record.get('metric', '')
-                value = record.get('value', 0)
-                
-                if metric == 'cwnd':
-                    times_cwnd.append(rel_time)
-                    cwnds.append(value)
-                elif metric == 'ssthresh':
-                    times_ssthresh.append(rel_time)
-                    ssthreshs.append(value)
+                if record.get('type') == 'METRIC':
+                    record_time = record.get('time', 0)
+                    rel_time = record_time - start_time
+                    metric = record.get('metric', '')
+                    value = record.get('value', 0)
+                    
+                    if metric == 'cwnd':
+                        times_cwnd.append(rel_time)
+                        cwnds.append(value)
+                        last_cwnd = value
+                    elif metric == 'ssthresh':
+                        times_ssthresh.append(rel_time)
+                        ssthreshs.append(value)
+                elif record.get('type') == 'EVENT':
+                    record_time = record.get('time', 0)
+                    rel_time = record_time - start_time
+                    ev = record.get('event')
+                    # 事件的Y值用最後一筆 cwnd（若無則用 ssthresh 或 0）
+                    y_val = last_cwnd if last_cwnd is not None else (ssthreshs[-1] if ssthreshs else 0)
+                    if ev == 'loss':
+                        event_times['loss'].append(rel_time)
+                        event_vals['loss'].append(y_val)
+                    elif ev == 'rto_event' or ev == 'rto':
+                        event_times['rto'].append(rel_time)
+                        event_vals['rto'].append(y_val)
+                    elif ev == 'fast_retx_event' or ev == 'fast':
+                        event_times['fast'].append(rel_time)
+                        event_vals['fast'].append(y_val)
             
             # 繪圖
             self.chart_plot.clear()
@@ -416,6 +435,13 @@ class TCPSimulatorGUI:
                     self.chart_plot.scatter(times_ssthresh, ssthreshs, label='SSTHRESH', color='red', s=50, marker='s')
                 else:
                     self.chart_plot.plot(times_ssthresh, ssthreshs, label='SSTHRESH', color='red', marker='s', linestyle='--', linewidth=2, markersize=6)
+            # 事件標記：loss (紅點)、rto (紅叉)、fast retransmit (黃三角)
+            if event_times['loss']:
+                self.chart_plot.scatter(event_times['loss'], event_vals['loss'], c='red', marker='o', s=60, label='Loss')
+            if event_times['rto']:
+                self.chart_plot.scatter(event_times['rto'], event_vals['rto'], c='darkred', marker='x', s=80, label='RTO')
+            if event_times['fast']:
+                self.chart_plot.scatter(event_times['fast'], event_vals['fast'], c='orange', marker='^', s=70, label='Fast RTX')
             
             # 如果沒有任何數據，顯示提示
             if not times_cwnd and not times_ssthresh:

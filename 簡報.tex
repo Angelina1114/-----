@@ -1,94 +1,202 @@
-\documentclass[aspectratio=169]{beamer} % 設定比例為 16:9
+\documentclass[12pt]{beamer}
 
-% --- 中文設定 (必須使用 XeLaTeX 編譯) ---
-\usepackage{xeCJK}
-\setCJKmainfont{Taipei Sans TC Beta} % 請改為你電腦有的字型，如 "Microsoft JhengHei" (微軟正黑體) 或 "PingFang TC"
-\setCJKsansfont{Taipei Sans TC Beta}
+\usetheme{Madrid}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
 
-% --- 主題設定 ---
-\usetheme{Madrid}      % 佈景主題 (Madrid, Antibes, Berlin 等)
-\usecolortheme{default} % 顏色主題
-\setbeamertemplate{navigation symbols}{} % 隱藏右下角的導航圖示
-
-% --- 資訊設定 ---
-\title{這是簡報標題}
-\subtitle{副標題或課程名稱}
-\author{你的名字}
-\institute{學校或機構名稱}
+\title{TCP 擁塞控制與封包行為的數學模型可視化研究}
+\author{Your Name}
 \date{\today}
 
 \begin{document}
 
-% 第一頁：標題頁
+%===========================================================
 \begin{frame}
-    \titlepage
+  \titlepage
 \end{frame}
+%===========================================================
 
-% 第二頁：大綱
-\begin{frame}{大綱}
-    \tableofcontents
+%===========================================================
+\begin{frame}{研究主題}
+本研究目標是以數學方式重建 TCP 行為，並透過模擬器與圖表可視化顯示：
+\begin{itemize}
+    \item 三次握手與封包傳輸流程
+    \item 擁塞控制（Slow Start / Congestion Avoidance）
+    \item 不同網路條件下的 CWND 與 SSTHRESH 成長
+    \item 封包遺失（Bernoulli）對 TCP 的影響
+    \item GUI 即時可視化與測試後產生圖表
+\end{itemize}
 \end{frame}
+%===========================================================
 
-% --- 第一章節 ---
-\section{簡介}
-
-\begin{frame}{這一頁的標題}
-    這是普通文字。你可以在這裡輸入介紹內容。
-    
+%===========================================================
+\begin{frame}{TCP 的數學形式化：有限狀態機 (FSM)}
+\begin{itemize}
+    \item TCP 狀態集合：
+    \[
+    S=\{CLOSED, LISTEN, SYN\_SENT, SYN\_RECEIVED, ESTABLISHED, \dots\}
+    \]
+    \item 狀態轉移函數：
+    \[
+    \delta : S \times E \to S
+    \]
+    \item 可完整分析：
     \begin{itemize}
-        \item 這是列點 (Itemize)
-        \item 這是第二點
-        \item 支援數學公式：$E = mc^2$
+        \item SYN 丟失
+        \item 半開連線 (Half-open)
+        \item DDoS 對握手的影響
     \end{itemize}
+\end{itemize}
 \end{frame}
+%===========================================================
 
-% --- 第二章節：區塊與數學 ---
-\section{數學與定理}
+%===========================================================
+\begin{frame}{擁塞控制的數學模型}
+\textbf{Slow Start}：
+\[
+cwnd = cwnd + 1
+\]
 
-\begin{frame}{定理與定義區塊}
-    Beamer 非常適合展示數學定義。
+\textbf{Congestion Avoidance}：
+\[
+cwnd = cwnd + \frac{1}{cwnd}
+\]
 
-    \begin{definition}[定義名稱]
-        這是一個定義區塊，可以用來解釋重要概念。
-    \end{definition}
+\textbf{Loss 時}：
+\[
+ssthresh = \frac{cwnd}{2},\quad cwnd \to 1
+\]
 
-    \begin{alertblock}{重要提示}
-        這是一個紅色的警告區塊，用來強調重點。
-    \end{alertblock}
-
-    \begin{exampleblock}{範例}
-        這是一個綠色的範例區塊。
-        $$ \int_{a}^{b} f(x) \,dx = F(b) - F(a) $$
-    \end{exampleblock}
+\begin{itemize}
+    \item 使 TCP 在無壅塞時快速成長
+    \item 一旦偵測壅塞則降低速率以避免崩潰
+\end{itemize}
 \end{frame}
+%===========================================================
 
-% --- 第三章節：左右分欄 ---
-\section{排版技巧}
+%===========================================================
+\begin{frame}{封包遺失的機率模型：Bernoulli 分佈}
+每一個封包的遺失建模為：
+\[
+X \sim Bernoulli(p)
+\]
 
-\begin{frame}{左右分欄排版}
-    \begin{columns}
-        % 左欄 (佔寬度 50%)
-        \begin{column}{0.5\textwidth}
-            這裡是左邊的文字。
-            \begin{itemize}
-                \item 條列項目 A
-                \item 條列項目 B
-            \end{itemize}
-        \end{column}
-        
-        % 右欄 (佔寬度 50%)
-        \begin{column}{0.5\textwidth}
-            % 這裡通常放圖片，例如：
-            % \includegraphics[width=\textwidth]{image.jpg}
-            這裡是右邊的文字或圖片位置。
-        \end{column}
-    \end{columns}
+若 $X=1$（封包遺失）則：
+\begin{itemize}
+    \item cwnd 快速下降
+    \item ssthresh 下修
+    \item TCP 回到 Slow Start
+\end{itemize}
+
+此模型使我們能以數學方式研究攻擊或網路品質下降。
 \end{frame}
+%===========================================================
 
-% --- 結尾 ---
-\begin{frame}
-    \centering
-    \Huge 謝謝聆聽！
+%===========================================================
+\begin{frame}{模擬器架構}
+本研究實作三層式 TCP 模擬器：
+
+\begin{enumerate}
+    \item \textbf{Network Layer}
+        \begin{itemize}
+            \item 延遲 (delay)
+            \item 頻寬 (bandwidth)
+            \item 封包遺失 (Bernoulli loss)
+        \end{itemize}
+
+    \item \textbf{TCP Connection Layer}
+        \begin{itemize}
+            \item 三次握手
+            \item FSM 狀態轉換
+            \item cwnd / ssthresh 更新
+            \item ACK、重傳邏輯（可擴展）
+        \end{itemize}
+
+    \item \textbf{Simulator (DES)}
+        \begin{itemize}
+            \item 離散事件系統（Future Event List）
+            \item 封包排程與到達時間
+        \end{itemize}
+\end{enumerate}
 \end{frame}
+%===========================================================
+
+%===========================================================
+\begin{frame}{結果展示：無封包遺失}
+\begin{itemize}
+    \item ssthresh 為水平線：無 loss → 不下降
+    \item cwnd 前段快速上升：Slow Start
+    \item cwnd 達 ssthresh 後轉為線性成長：Congestion Avoidance
+\end{itemize}
+
+此行為與 TCP Reno 模型完全一致，驗證模擬器正確性。
+\end{frame}
+%===========================================================
+
+%===========================================================
+\begin{frame}{結果展示：輕度封包遺失}
+\begin{itemize}
+    \item cwnd 產生明顯掉落
+    \item ssthresh 下修至 cwnd / 2
+    \item TCP 重新進入 Slow Start → 再進入 CA
+\end{itemize}
+
+可視化出 loss 對 TCP 傳輸效率的直接影響。
+\end{itemize}
+\end{frame}
+%===========================================================
+
+%===========================================================
+\begin{frame}{結果展示：延遲與頻寬的影響}
+\begin{itemize}
+    \item 高延遲 → RTT 增加 → cwnd 成長速度變慢
+    \item 低頻寬 → 傳輸時間上升 → ACK 回來變慢
+    \item 整體 throughput 明顯下降
+\end{itemize}
+
+顯示出網路環境與 TCP 數學行為之間的關聯性。
+\end{frame}
+%===========================================================
+
+%===========================================================
+\begin{frame}{三次握手封包遺失分析}
+\begin{itemize}
+    \item SYN 丟失 → Client 需重傳（模擬器目前無 RTO）
+    \item SYN/ACK 丟失 → Server 重傳（模擬器目前無 RTO）
+    \item ACK 丟失 → Server 重傳 SYN/ACK（模擬器目前無 RTO）
+\end{itemize}
+
+重傳計時器（RTO）是 TCP 的核心機制，未來可加入模擬器中以強化真實性。
+\end{itemize}
+\end{frame}
+%===========================================================
+
+%===========================================================
+\begin{frame}{研究貢獻}
+\begin{itemize}
+    \item 建立 TCP 擁塞控制的完整數學模型
+    \item 實作基於 DES 的 TCP 模擬平台
+    \item 以 GUI 即時視覺化三次握手與封包行為
+    \item 自動產生 CWND / SSTHRESH 圖表供研究使用
+    \item 建立可用於教學、資安分析、性能比較的基礎系統
+\end{itemize}
+\end{frame}
+%===========================================================
+
+%===========================================================
+\begin{frame}{研究動機（結尾）}
+TCP 是網路世界的基礎協定，但其內部行為難以直接觀察。
+
+本研究希望：
+\begin{itemize}
+    \item 讓 TCP 不再是黑盒子，而是可分析的數學系統
+    \item 以模型精準理解擁塞、攻擊（loss）、環境變化的影響
+    \item 建立可視化工具協助教學與資安研究
+\end{itemize}
+
+\centering
+\textbf{透過數學，我們能真正理解網路。}
+\end{frame}
+%===========================================================
 
 \end{document}
