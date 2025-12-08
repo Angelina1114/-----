@@ -1,0 +1,94 @@
+\documentclass[aspectratio=169]{beamer} % 設定比例為 16:9
+
+% --- 中文設定 (必須使用 XeLaTeX 編譯) ---
+\usepackage{xeCJK}
+\setCJKmainfont{Taipei Sans TC Beta} % 請改為你電腦有的字型，如 "Microsoft JhengHei" (微軟正黑體) 或 "PingFang TC"
+\setCJKsansfont{Taipei Sans TC Beta}
+
+% --- 主題設定 ---
+\usetheme{Madrid}      % 佈景主題 (Madrid, Antibes, Berlin 等)
+\usecolortheme{default} % 顏色主題
+\setbeamertemplate{navigation symbols}{} % 隱藏右下角的導航圖示
+
+% --- 資訊設定 ---
+\title{這是簡報標題}
+\subtitle{副標題或課程名稱}
+\author{你的名字}
+\institute{學校或機構名稱}
+\date{\today}
+
+\begin{document}
+
+% 第一頁：標題頁
+\begin{frame}
+    \titlepage
+\end{frame}
+
+% 第二頁：大綱
+\begin{frame}{大綱}
+    \tableofcontents
+\end{frame}
+
+% --- 第一章節 ---
+\section{簡介}
+
+\begin{frame}{這一頁的標題}
+    這是普通文字。你可以在這裡輸入介紹內容。
+    
+    \begin{itemize}
+        \item 這是列點 (Itemize)
+        \item 這是第二點
+        \item 支援數學公式：$E = mc^2$
+    \end{itemize}
+\end{frame}
+
+% --- 第二章節：區塊與數學 ---
+\section{數學與定理}
+
+\begin{frame}{定理與定義區塊}
+    Beamer 非常適合展示數學定義。
+
+    \begin{definition}[定義名稱]
+        這是一個定義區塊，可以用來解釋重要概念。
+    \end{definition}
+
+    \begin{alertblock}{重要提示}
+        這是一個紅色的警告區塊，用來強調重點。
+    \end{alertblock}
+
+    \begin{exampleblock}{範例}
+        這是一個綠色的範例區塊。
+        $$ \int_{a}^{b} f(x) \,dx = F(b) - F(a) $$
+    \end{exampleblock}
+\end{frame}
+
+% --- 第三章節：左右分欄 ---
+\section{排版技巧}
+
+\begin{frame}{左右分欄排版}
+    \begin{columns}
+        % 左欄 (佔寬度 50%)
+        \begin{column}{0.5\textwidth}
+            這裡是左邊的文字。
+            \begin{itemize}
+                \item 條列項目 A
+                \item 條列項目 B
+            \end{itemize}
+        \end{column}
+        
+        % 右欄 (佔寬度 50%)
+        \begin{column}{0.5\textwidth}
+            % 這裡通常放圖片，例如：
+            % \includegraphics[width=\textwidth]{image.jpg}
+            這裡是右邊的文字或圖片位置。
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% --- 結尾 ---
+\begin{frame}
+    \centering
+    \Huge 謝謝聆聽！
+\end{frame}
+
+\end{document}
