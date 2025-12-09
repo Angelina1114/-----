@@ -95,27 +95,32 @@ class TCPSimulatorGUI:
         self.data_entry.grid(row=9, column=1, pady=5, sticky=tk.W+tk.E)
         self.data_entry.insert(0, "Hello TCP!")
         
+        ttk.Label(control_frame, text="發送數量:").grid(row=10, column=0, sticky=tk.W, pady=5)
+        self.packet_count_var = tk.IntVar(value=1)
+        ttk.Spinbox(control_frame, from_=1, to=100, increment=1,
+                   textvariable=self.packet_count_var, width=10).grid(row=10, column=1, pady=5, sticky=tk.W)
+        
         ttk.Button(control_frame, text="關閉連接 (四次揮手)",
                   command=self._close_connection).grid(
-            row=10, column=0, columnspan=2, pady=5, sticky=tk.W+tk.E)
+            row=11, column=0, columnspan=2, pady=5, sticky=tk.W+tk.E)
         
         ttk.Button(control_frame, text="重置連接",
                   command=self._reset_connection).grid(
-            row=11, column=0, columnspan=2, pady=5, sticky=tk.W+tk.E)
+            row=12, column=0, columnspan=2, pady=5, sticky=tk.W+tk.E)
         
         # 分隔線
         ttk.Separator(control_frame, orient=tk.HORIZONTAL).grid(
-            row=12, column=0, columnspan=2, sticky=tk.W+tk.E, pady=10)
+            row=13, column=0, columnspan=2, sticky=tk.W+tk.E, pady=10)
         
         # 狀態資訊
         ttk.Label(control_frame, text="連接狀態", font=("Arial", 12, "bold")).grid(
-            row=13, column=0, columnspan=2, pady=(0, 10), sticky=tk.W)
+            row=14, column=0, columnspan=2, pady=(0, 10), sticky=tk.W)
         
         self.client_state_label = ttk.Label(control_frame, text="客戶端: CLOSED")
-        self.client_state_label.grid(row=14, column=0, columnspan=2, sticky=tk.W, pady=2)
+        self.client_state_label.grid(row=15, column=0, columnspan=2, sticky=tk.W, pady=2)
         
         self.server_state_label = ttk.Label(control_frame, text="伺服器: LISTEN")
-        self.server_state_label.grid(row=15, column=0, columnspan=2, sticky=tk.W, pady=2)
+        self.server_state_label.grid(row=16, column=0, columnspan=2, sticky=tk.W, pady=2)
         
         # 右側主顯示區
         notebook = ttk.Notebook(main_frame)
@@ -248,22 +253,33 @@ class TCPSimulatorGUI:
             messagebox.showwarning("警告", "請輸入要發送的資料")
             return
         
-        self._log(f"=== 發送資料: {data.decode('utf-8')} ===")
+        # 獲取用戶指定的發送數量
+        packet_count = self.packet_count_var.get()
+        if packet_count < 1:
+            messagebox.showwarning("警告", "發送數量必須至少為 1")
+            return
         
-        # 發送多個數據包以觸發擁塞控制（模擬連續發送）
-        # 這樣可以更快地看到擁塞視窗的變化
+        self._log(f"=== 發送資料: {data.decode('utf-8')} (數量: {packet_count}) ===")
+        
+        # 發送指定數量的數據包
         connection = self.simulator.client
         if connection and connection.state.value == "ESTABLISHED":
-            # 發送多個數據包（最多10個，或直到擁塞視窗滿）
-            max_packets = 10
-            for i in range(max_packets):
+            # 發送指定數量的數據包，但受擁塞視窗限制
+            sent_count = 0
+            for i in range(packet_count):
                 if len(connection.unacked_packets) < int(connection.congestion_window):
                     self.simulator.send_data(data, from_client=True)
+                    sent_count += 1
                 else:
                     # 擁塞視窗已滿，將剩餘數據放入緩衝區
                     connection.send_buffer.append(data)
-                    break
+            
+            if sent_count < packet_count:
+                self._log(f"已發送 {sent_count} 個封包，剩餘 {packet_count - sent_count} 個封包已放入緩衝區")
         else:
+            # 連接未建立，只發送一個封包
+            if packet_count > 1:
+                messagebox.showwarning("警告", "連接未建立，只能發送 1 個封包")
             self.simulator.send_data(data, from_client=True)
     
     def _close_connection(self):
