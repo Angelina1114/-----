@@ -1,0 +1,219 @@
+\documentclass[aspectratio=169]{beamer}
+\usetheme{metropolis}
+\usepackage{xeCJK}
+\setCJKmainfont{Noto Sans TC}
+\usepackage{amsmath, amssymb, amsthm}
+
+\title{範疇論與集合論：以 Relation 為例}
+\author{盧詠涵\\輔仁大學資訊數學系}
+\date{2025年11月12日}
+
+\begin{document}
+
+%------------------------------------------------------
+\begin{frame}
+  \titlepage
+\end{frame}
+
+%------------------------------------------------------
+\begin{frame}{研究背景}
+\begin{itemize}
+  \item 1945 年，Eilenberg 與 Mac Lane 引入「範疇」概念，以形式化數學結構之間的對應關係。
+  \item 範疇論提供一種以「關係」而非「元素」為中心的結構性語言。
+  \item 本報告以 Relation 為例，展示如何形成範疇。
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------------
+\begin{frame}{為什麼需要抽象化？什麼是抽象化？}
+  \begin{itemize}
+    \item 不同數學領域在形式上共享相同的結構邏輯。
+    \item 抽象化不是讓概念變模糊，而是去除細節、保留本質。
+    \item 它讓我們從「元素」轉向「結構」的思考方式。
+    \item 範疇論正是這種思想的體現——專注於可合成的結構關係。
+  \end{itemize}
+  \end{frame}
+
+  %------------------------------------------------------
+
+  \begin{frame}{不同數學對象範疇化所需的性質}
+    \begin{itemize}
+      \item 各種數學對象若要構成範疇，必須具備能「保持結構」的態射與可合成性。
+      \item 不同對象在此基礎上會多出額外的性質：
+    \end{itemize}
+    
+    \begin{table}[h!]
+      \centering
+      \begin{tabular}{|p{3cm}|p{8cm}|}
+      \hline
+      \textbf{對象類型} & \textbf{要多符合的條件} \\
+      \hline
+      關係（Relation） & 只要能表示元素之間的關聯，並能合成就可以。 \\
+      \hline
+      函數（Function） & 每個輸入只能對應到一個輸出。 \\
+      \hline
+      群（Group） & 對應要能保持群的運算規則。 \\
+      \hline
+      拓樸空間（Top） & 對應要能保持空間的連續性。 \\
+      \hline
+      向量空間（Vect） & 對應要能保持加法和數乘。 \\
+      \hline
+      \end{tabular}
+      \end{table}
+    
+    \begin{itemize}
+      \item Relation 是最簡潔的例子，只依靠「關聯與合成」即可形成範疇。
+    \end{itemize}
+    \end{frame}
+    
+
+
+%------------------------------------------------------
+\begin{frame}{範疇論與集合論的關係}
+\begin{itemize}
+  \item 集合論：描述元素與成員關係。
+  \item 範疇論：描述物件之間的結構與合成規則。
+  \item Relation 是範疇論的具體例子之一，不是起點。
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------------
+\begin{frame}{Relation 範疇範例}
+  \begin{itemize}
+    \item 定義關係：$R \subseteq A \times B$。
+    \item 合成：$S \circ R = \{(a,c)\mid \exists b\in B, (a,b)\in R, (b,c)\in S\}$。
+    \item 恆等：$I_A = \{(a,a)\mid a\in A\}$。
+    \item 這些結構形成範疇 $\mathbf{Rel}$。
+  \end{itemize}
+  
+  \begin{table}[h!]
+  \centering
+  \begin{tabular}{|p{5cm}|p{6cm}|}
+  \hline
+  \textbf{範疇論中的概念} & \textbf{在 $\mathbf{Rel}$ 中的對應} \\
+  \hline
+  物件（Object） & 集合（Set） \\
+  \hline
+  態射（Morphism） & 關係（Relation）$R \subseteq A \times B$ \\
+  \hline
+  態射合成（Composition） & 關係的合成 $S \circ R$ \\
+  \hline
+  恆等態射（Identity Morphism） & 恆等關係 $I_A = \{(a,a)\mid a\in A\}$ \\
+  \hline
+  範疇結構 & $(\text{集合}, \text{關係}, \circ, I)$ \\
+  \hline
+  \end{tabular}
+  \end{table}
+  \end{frame}
+  
+
+%------------------------------------------------------
+\begin{frame}{C1. 結合律}
+\textbf{Axiom C1.} $T\circ(S\circ R) = (T\circ S)\circ R$
+\textbf{Proof.}\\
+
+Let $R, S, T$ be relations of $A$ to $B$, $B$ to $C$, and $C$ to $D$.  
+Suppose $(a,d)\in T\circ (S\circ R)$ for some $a\in A$ and $d\in D$.
+\[
+\begin{aligned}
+&\Leftrightarrow (\exists c\in C)[(a,c)\in S\circ R \land (c,d)\in T]\\
+&\Leftrightarrow (\exists c\in C)[(\exists b\in B)[(a,b)\in R \land (b,c)\in S] \land (c,d)\in T]\\
+&\Leftrightarrow (\exists c\in C)(\exists b\in B)[(a,b)\in R \land (b,c)\in S \land (c,d)\in T]\\
+&\Leftrightarrow (\exists b\in B)(\exists c\in C)[(b,c)\in S \land (c,d)\in T \land (a,b)\in R]\\
+&\Leftrightarrow (\exists b\in B)[(b,d)\in T\circ S \land (a,b)\in R]\\
+&\Leftrightarrow (a,d)\in (T\circ S)\circ R.
+\end{aligned}
+\]
+Therefore, $(T\circ S)\circ R = T\circ (S\circ R).$
+\end{frame}
+
+%------------------------------------------------------
+\begin{frame}{C2. 合成閉合性}
+\textbf{Axiom C2.} 若 $S\circ R$ 與 $T\circ S$ 定義，則 $T\circ S\circ R$ 亦定義。\\
+\textbf{Proof.}
+
+Let $T\circ S$ and $S\circ R$ be defined.  
+\[
+\begin{aligned}
+S\circ R &= \{(a,c)\mid \exists b\in B, (a,b)\in R \land (b,c)\in S\}\\
+&\Rightarrow (\exists c\in C)[(b,c)\in S \land (c,d)\in T]\land (\exists b\in B)[(a,b)\in R \land (b,c)\in S]\\
+&\Rightarrow (\exists c\in C)(\exists b\in B)[(a,b)\in R \land (b,c)\in S \land (c,d)\in T]\\
+&\Rightarrow (a,d)\in T\circ (S\circ R).
+\end{aligned}
+\]
+Therefore, $T\circ S\circ R$ is defined.
+\end{frame}
+
+%------------------------------------------------------
+\begin{frame}{C3. 恆等律}
+\textbf{Axiom C3.} $R\circ I_A = R = I_B\circ R$\\
+\textbf{Proof.} 
+There exists an identity relation $I_A$ and $I_B$.
+\[
+I_A = \{(a,a)\mid a\in A\}, \quad I_B = \{(b,b)\mid b\in B\}.
+\]
+Let $(a,b)\in R\circ I_A$. \\
+Then
+\[
+(\exists a')[(a,a')\in I_A \land (a',b)\in R].
+\]
+Since $I_A=\{(a,a)\mid a\in A\}$, we have $a'=a$.  
+Hence $(a,b)\in R \Rightarrow R\circ I_A \subseteq R$.
+
+Let $(a,b)\in R$. 
+\\Then
+\[
+(\exists a')[(a',a)\in I_A \land (a,b)\in R] \Rightarrow (a,b)\in R\circ I_A.
+\]
+\\Thus, $R\subseteq R\circ I_A$. Therefore $R\circ I_A=R$.
+
+Similarly, $I_B\circ R = R$.  
+Therefore, $I_B\circ R = R = R\circ I_A.$
+\end{frame}
+
+%------------------------------------------------------
+\begin{frame}{C4. 恆等映射存在}
+\textbf{Axiom C4.} 存在映射 $e:O\to M, e(A)=I_A$，使得
+$$R\circ e(A)=R=e(B)\circ R.$$\\
+\textbf{Proof.}\\
+
+Let $e(A)=I_A=\{(a,a)\mid a\in A\}$.  \\
+By C3, $R\circ e(A)=R$ and $e(B)\circ R=R$.  \\
+Therefore, $e:\mathcal{O}\to\mathcal{M}$ is well-defined, and satisfies C4.
+\end{frame}
+
+%------------------------------------------------------
+\begin{frame}{C5. 恆等唯一性}
+\textbf{Axiom C5.} 若 $I_A=I_B$，則 $A=B$。\\
+\textbf{Proof.}
+
+\[
+I_A=I_B \iff A=B.
+\]
+$(\Rightarrow)$ Suppose that $I_A=I_B$.  
+$I_A=\{(a,a)\mid a\in A\}, \quad I_B=\{(b,b)\mid b\in B\}.$
+Let $(a,a)\in I_A$, then $a\in A$.  
+Since $I_A=I_B$, we have $(a,a)\in I_B$.  
+By the definition of $I_B$, $a\in B$.  
+Thus $A\subseteq B$.  
+
+Similarly, take $(b,b)\in I_B \Rightarrow B\subseteq A$.  
+Hence $A=B$.
+
+$(\Leftarrow)$ Suppose that $A=B$. Then
+$I_A=\{(a,a)\mid a\in A=B\}=\{(a,a)\mid a\in B\}=I_B.$
+Thus, $I_A=I_B$.  
+Therefore, $I_A=I_B \iff A=B.$
+\end{frame}
+
+%------------------------------------------------------
+\begin{frame}{結論}
+\begin{itemize}
+  \item $(O,M,\circ,e)=(\text{所有集合},\text{所有關係},\circ,e)$ 滿足 C1--C5。
+  \item 因此，Relation 的系統構成一個範疇 $\mathbf{Rel}$。
+  \item 它展示了集合論結構如何成為範疇論的具體例子。
+\end{itemize}
+\end{frame}
+
+\end{document}
+  

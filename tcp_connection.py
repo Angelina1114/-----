@@ -9,6 +9,7 @@ import random
 import hmac
 import hashlib
 from tcp_packet import TCPPacket, TCPFlag
+from tcp_congestion import CongestionAlgorithm, create_algorithm
 
 
 class TCPState(Enum):
@@ -29,7 +30,8 @@ class TCPState(Enum):
 class TCPConnection:
     """TCP連接"""
     
-    def __init__(self, local_port: int, remote_port: int, is_server: bool = False):
+    def __init__(self, local_port: int, remote_port: int, is_server: bool = False, 
+                 congestion_algorithm: str = "Reno"):
         self.local_port = local_port
         self.remote_port = remote_port
         self.is_server = is_server
@@ -46,11 +48,12 @@ class TCPConnection:
         # 視窗大小
         self.send_window = 65535
         self.receive_window = 65535
-        self.congestion_window = 1.0  # 擁塞視窗（MSS），改為浮點數以支持擁塞避免計算
-        self.ssthresh = 16.0  # 慢啟動閾值（降低以便更快看到變化）
         
-        # 擁塞控制狀態
-        self.congestion_state = "slow_start"  # slow_start, congestion_avoidance, fast_recovery
+        # 擁塞控制演算法
+        self.congestion_alg: CongestionAlgorithm = create_algorithm(congestion_algorithm)
+        self.congestion_window = self.congestion_alg.congestion_window
+        self.ssthresh = self.congestion_alg.ssthresh
+        self.congestion_state = self.congestion_alg.congestion_state
         
         # 資料緩衝區
         self.send_buffer: List[bytes] = []
@@ -104,6 +107,10 @@ class TCPConnection:
             
             # 當連接建立時，記錄初始擁塞控制指標
             if new_state == TCPState.ESTABLISHED and self.on_metric_change:
+                # 同步演算法狀態
+                self.congestion_window = self.congestion_alg.congestion_window
+                self.ssthresh = self.congestion_alg.ssthresh
+                self.congestion_state = self.congestion_alg.congestion_state
                 self.on_metric_change("cwnd", self.congestion_window, time.time())
                 self.on_metric_change("ssthresh", self.ssthresh, time.time())
     
@@ -440,10 +447,13 @@ class TCPConnection:
                     self.on_metric_change("fast_retx_event", packet.seq_num, time.time())
                 # 重置重複ACK計數
                 self.duplicate_ack_count[ack_num] = 0
-                # 進入快速恢復狀態 (Reno)
-                self.ssthresh = max(2.0, self.congestion_window / 2.0)
-                self.congestion_window = self.ssthresh + 3.0
-                self.congestion_state = "fast_recovery"
+                # 使用演算法處理快速重傳
+                self.congestion_window, self.ssthresh, self.congestion_state = \
+                    self.congestion_alg.on_packet_loss("fast_retransmit")
+                # 同步演算法狀態
+                self.congestion_alg.congestion_window = self.congestion_window
+                self.congestion_alg.ssthresh = self.ssthresh
+                self.congestion_alg.congestion_state = self.congestion_state
                 
                 if self.on_metric_change:
                     self.on_metric_change("cwnd", self.congestion_window, time.time())
@@ -484,18 +494,19 @@ class TCPConnection:
         # 只有在有未確認的資料包被確認時才增長
         if len(self.unacked_packets) < old_unacked_count:
             # 有資料包被確認了
-            if self.congestion_state == "slow_start":
-                # 慢啟動：每收到一個ACK，擁塞視窗增加1個MSS
-                self.congestion_window += 1.0
-                if self.congestion_window >= self.ssthresh:
-                    self.congestion_state = "congestion_avoidance"
-            elif self.congestion_state == "congestion_avoidance":
-                # 擁塞避免：每收到一個ACK，擁塞視窗增加1/cwnd
-                self.congestion_window += 1.0 / self.congestion_window
-            elif self.congestion_state == "fast_recovery":
-                # 快速恢復：收到新的ACK，退出快速恢復
-                self.congestion_window = self.ssthresh
-                self.congestion_state = "congestion_avoidance"
+            # 如果是快速恢復狀態且收到新ACK，先退出快速恢復
+            if self.congestion_state == "fast_recovery":
+                self.congestion_window, self.ssthresh, self.congestion_state = \
+                    self.congestion_alg.on_fast_recovery_exit()
+            else:
+                # 使用演算法處理ACK
+                self.congestion_window, self.ssthresh, self.congestion_state = \
+                    self.congestion_alg.on_ack_received()
+            
+            # 同步演算法狀態
+            self.congestion_alg.congestion_window = self.congestion_window
+            self.congestion_alg.ssthresh = self.ssthresh
+            self.congestion_alg.congestion_state = self.congestion_state
         
         # 記錄當前值（每次ACK都記錄，以便圖表顯示完整過程）
         if self.on_metric_change:
@@ -582,10 +593,13 @@ class TCPConnection:
                 unacked['retransmit_count'] += 1
                 unacked['send_time'] = current_time
                 
-                # 擁塞控制：超時重傳時進入慢啟動（僅在已建立連線下）
-                self.ssthresh = max(2.0, self.congestion_window / 2.0)
-                self.congestion_window = 1.0
-                self.congestion_state = "slow_start"
+                # 使用演算法處理超時
+                self.congestion_window, self.ssthresh, self.congestion_state = \
+                    self.congestion_alg.on_packet_loss("timeout")
+                # 同步演算法狀態
+                self.congestion_alg.congestion_window = self.congestion_window
+                self.congestion_alg.ssthresh = self.ssthresh
+                self.congestion_alg.congestion_state = self.congestion_state
                 
                 if self.on_metric_change:
                     self.on_metric_change("cwnd", self.congestion_window, time.time())

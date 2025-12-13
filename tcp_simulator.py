@@ -97,20 +97,23 @@ class TCPSimulator:
     """TCP模擬器主類"""
     
     def __init__(self, network_delay: float = 0.1, loss_rate: float = 0.0,
-                 bandwidth: float = 1000.0):
+                 bandwidth: float = 1000.0, congestion_algorithm: str = "Reno"):
         self.network = NetworkSimulator(network_delay, loss_rate, bandwidth)
         self.client: Optional[TCPConnection] = None
         self.server: Optional[TCPConnection] = None
         self.packet_history: List[Dict] = []
         self.metric_history: List[Dict] = [] # 新增：指標歷史數據
         self.running = False
+        self.congestion_algorithm = congestion_algorithm
     
     def create_connection(self, client_port: int = 5000, 
                          server_port: int = 8000):
         """創建TCP連接"""
         # 創建客戶端和伺服器連接
-        self.client = TCPConnection(client_port, server_port, is_server=False)
-        self.server = TCPConnection(server_port, client_port, is_server=True)
+        self.client = TCPConnection(client_port, server_port, is_server=False, 
+                                    congestion_algorithm=self.congestion_algorithm)
+        self.server = TCPConnection(server_port, client_port, is_server=True,
+                                    congestion_algorithm=self.congestion_algorithm)
         
         # 設置回調
         self.client.on_state_change = self._on_state_change

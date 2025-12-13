@@ -26,7 +26,9 @@ class TCPSimulatorGUI:
         self.root.title("TCP模擬系統")
         self.root.geometry("1200x800")
         
-        self.simulator = TCPSimulator(network_delay=0.5, loss_rate=0.0, bandwidth=1000.0)
+        self.congestion_algorithm = "Reno"  # 預設演算法
+        self.simulator = TCPSimulator(network_delay=0.5, loss_rate=0.0, bandwidth=1000.0,
+                                     congestion_algorithm=self.congestion_algorithm)
         self.simulator.create_connection(client_port=5000, server_port=8000)
         
         self.running = False
@@ -74,53 +76,62 @@ class TCPSimulatorGUI:
                   command=self._update_network_params).grid(
             row=4, column=0, columnspan=2, pady=10, sticky=tk.W+tk.E)
         
+        # 擁塞控制演算法選擇
+        ttk.Label(control_frame, text="擁塞控制演算法:").grid(row=5, column=0, sticky=tk.W, pady=5)
+        self.algorithm_var = tk.StringVar(value="Reno")
+        algorithm_combo = ttk.Combobox(control_frame, textvariable=self.algorithm_var,
+                                      values=["Reno", "NewReno", "Cubic", "BBR"],
+                                      state="readonly", width=12)
+        algorithm_combo.grid(row=5, column=1, pady=5, sticky=tk.W)
+        algorithm_combo.bind("<<ComboboxSelected>>", self._on_algorithm_changed)
+        
         # 分隔線
         ttk.Separator(control_frame, orient=tk.HORIZONTAL).grid(
-            row=5, column=0, columnspan=2, sticky=tk.W+tk.E, pady=10)
+            row=6, column=0, columnspan=2, sticky=tk.W+tk.E, pady=10)
         
         # 連接控制
         ttk.Label(control_frame, text="連接控制", font=("Arial", 12, "bold")).grid(
-            row=6, column=0, columnspan=2, pady=(0, 10), sticky=tk.W)
+            row=7, column=0, columnspan=2, pady=(0, 10), sticky=tk.W)
         
         ttk.Button(control_frame, text="建立連接 (三次握手)",
                   command=self._start_connection).grid(
-            row=7, column=0, columnspan=2, pady=5, sticky=tk.W+tk.E)
+            row=8, column=0, columnspan=2, pady=5, sticky=tk.W+tk.E)
         
         ttk.Button(control_frame, text="發送資料",
                   command=self._send_data).grid(
-            row=8, column=0, columnspan=2, pady=5, sticky=tk.W+tk.E)
+            row=9, column=0, columnspan=2, pady=5, sticky=tk.W+tk.E)
         
-        ttk.Label(control_frame, text="資料內容:").grid(row=9, column=0, sticky=tk.W, pady=5)
+        ttk.Label(control_frame, text="資料內容:").grid(row=10, column=0, sticky=tk.W, pady=5)
         self.data_entry = ttk.Entry(control_frame, width=15)
-        self.data_entry.grid(row=9, column=1, pady=5, sticky=tk.W+tk.E)
+        self.data_entry.grid(row=10, column=1, pady=5, sticky=tk.W+tk.E)
         self.data_entry.insert(0, "Hello TCP!")
         
-        ttk.Label(control_frame, text="發送數量:").grid(row=10, column=0, sticky=tk.W, pady=5)
+        ttk.Label(control_frame, text="發送數量:").grid(row=11, column=0, sticky=tk.W, pady=5)
         self.packet_count_var = tk.IntVar(value=1)
         ttk.Spinbox(control_frame, from_=1, to=100, increment=1,
-                   textvariable=self.packet_count_var, width=10).grid(row=10, column=1, pady=5, sticky=tk.W)
+                   textvariable=self.packet_count_var, width=10).grid(row=11, column=1, pady=5, sticky=tk.W)
         
         ttk.Button(control_frame, text="關閉連接 (四次揮手)",
                   command=self._close_connection).grid(
-            row=11, column=0, columnspan=2, pady=5, sticky=tk.W+tk.E)
+            row=12, column=0, columnspan=2, pady=5, sticky=tk.W+tk.E)
         
         ttk.Button(control_frame, text="重置連接",
                   command=self._reset_connection).grid(
-            row=12, column=0, columnspan=2, pady=5, sticky=tk.W+tk.E)
+            row=13, column=0, columnspan=2, pady=5, sticky=tk.W+tk.E)
         
         # 分隔線
         ttk.Separator(control_frame, orient=tk.HORIZONTAL).grid(
-            row=13, column=0, columnspan=2, sticky=tk.W+tk.E, pady=10)
+            row=14, column=0, columnspan=2, sticky=tk.W+tk.E, pady=10)
         
         # 狀態資訊
         ttk.Label(control_frame, text="連接狀態", font=("Arial", 12, "bold")).grid(
-            row=14, column=0, columnspan=2, pady=(0, 10), sticky=tk.W)
+            row=15, column=0, columnspan=2, pady=(0, 10), sticky=tk.W)
         
         self.client_state_label = ttk.Label(control_frame, text="客戶端: CLOSED")
-        self.client_state_label.grid(row=15, column=0, columnspan=2, sticky=tk.W, pady=2)
+        self.client_state_label.grid(row=16, column=0, columnspan=2, sticky=tk.W, pady=2)
         
         self.server_state_label = ttk.Label(control_frame, text="伺服器: LISTEN")
-        self.server_state_label.grid(row=16, column=0, columnspan=2, sticky=tk.W, pady=2)
+        self.server_state_label.grid(row=17, column=0, columnspan=2, sticky=tk.W, pady=2)
         
         # 右側主顯示區
         notebook = ttk.Notebook(main_frame)
@@ -229,6 +240,28 @@ class TCPSimulatorGUI:
         self._log("網路參數已更新: 延遲={}s, 丟包率={}%, 頻寬={}KB/s".format(
             self.delay_var.get(), self.loss_var.get(), self.bandwidth_var.get()))
     
+    def _on_algorithm_changed(self, event=None):
+        """演算法變更回調"""
+        new_algorithm = self.algorithm_var.get()
+        if new_algorithm != self.congestion_algorithm:
+            self.congestion_algorithm = new_algorithm
+            self._log(f"擁塞控制演算法已變更為: {new_algorithm}")
+            # 只有在連接未建立時才能變更演算法
+            if self.simulator.client and self.simulator.client.state.value == "CLOSED":
+                # 重新創建模擬器以應用新演算法
+                self.simulator = TCPSimulator(
+                    network_delay=self.delay_var.get(),
+                    loss_rate=self.loss_var.get() / 100.0,
+                    bandwidth=self.bandwidth_var.get(),
+                    congestion_algorithm=self.congestion_algorithm
+                )
+                self.simulator.create_connection(client_port=5000, server_port=8000)
+                # 重新設置回調
+                self._setup_simulator_callbacks()
+            else:
+                messagebox.showinfo("提示", 
+                    f"演算法已變更為 {new_algorithm}，將在下次重置連接時生效。")
+    
     def _start_connection(self):
         """開始連接"""
         # 檢查當前狀態，如果已經在連接過程中或已連接，先重置
@@ -292,17 +325,71 @@ class TCPSimulatorGUI:
         self.simulator = TCPSimulator(
             network_delay=self.delay_var.get(),
             loss_rate=self.loss_var.get() / 100.0,
-            bandwidth=self.bandwidth_var.get()
+            bandwidth=self.bandwidth_var.get(),
+            congestion_algorithm=self.congestion_algorithm
         )
         self.simulator.create_connection(client_port=5000, server_port=8000)
-        self.simulator.client.on_state_change = self._on_state_change
-        self.simulator.client.on_packet_sent = self._on_packet_sent
-        self.simulator.client.on_packet_received = self._on_packet_received
-        self.simulator.server.on_state_change = self._on_state_change
-        self.simulator.server.on_packet_sent = self._on_packet_sent
-        self.simulator.server.on_packet_received = self._on_packet_received
-        self.simulator.network.on_packet_transmitted = self._on_packet_transmitted
-        # 注意：on_retransmit_needed 和 on_metric_change 回調已在 create_connection 中設置
+        self._setup_simulator_callbacks()
+        # 清除日誌和圖表
+        self.log_text.delete(1.0, tk.END)
+        self._log(f"連接已重置，使用演算法: {self.congestion_algorithm}")
+        
+        # 清除圖表
+        self.chart_plot.clear()
+        self.chart_plot.set_title("Congestion Window (CWND) over Time")
+        self.chart_plot.set_xlabel("Time (s)")
+        self.chart_plot.set_ylabel("Segments (MSS)")
+        self.chart_canvas.draw()
+    
+    def _setup_simulator_callbacks(self):
+        """設置模擬器回調函數"""
+        # 設置 GUI 特定的回調，用於日誌顯示
+        if self.simulator.client:
+            # 保存原有的回調（simulator 內部使用）
+            original_on_packet_sent = self.simulator.client.on_packet_sent
+            original_on_packet_received = self.simulator.client.on_packet_received
+            
+            # 包裝回調，同時調用原有回調和 GUI 更新
+            def wrapped_on_packet_sent(packet):
+                if original_on_packet_sent:
+                    original_on_packet_sent(packet)
+                self._on_packet_sent(packet)
+            
+            def wrapped_on_packet_received(packet):
+                if original_on_packet_received:
+                    original_on_packet_received(packet)
+                self._on_packet_received(packet)
+            
+            self.simulator.client.on_packet_sent = wrapped_on_packet_sent
+            self.simulator.client.on_packet_received = wrapped_on_packet_received
+        
+        if self.simulator.server:
+            # 保存原有的回調
+            original_on_packet_sent = self.simulator.server.on_packet_sent
+            original_on_packet_received = self.simulator.server.on_packet_received
+            
+            # 包裝回調
+            def wrapped_on_packet_sent(packet):
+                if original_on_packet_sent:
+                    original_on_packet_sent(packet)
+                self._on_packet_sent(packet)
+            
+            def wrapped_on_packet_received(packet):
+                if original_on_packet_received:
+                    original_on_packet_received(packet)
+                self._on_packet_received(packet)
+            
+            self.simulator.server.on_packet_sent = wrapped_on_packet_sent
+            self.simulator.server.on_packet_received = wrapped_on_packet_received
+        
+        if self.simulator.network:
+            # 包裝網路傳輸回調
+            original_on_transmitted = self.simulator.network.on_packet_transmitted
+            def wrapped_on_transmitted(packet, dest, status):
+                if original_on_transmitted:
+                    original_on_transmitted(packet, dest, status)
+                self._on_packet_transmitted(packet, dest, status)
+            self.simulator.network.on_packet_transmitted = wrapped_on_transmitted
         
         self.log_text.delete(1.0, tk.END)
         self._log("連接已重置")
@@ -337,10 +424,18 @@ class TCPSimulatorGUI:
             self._log(f"[到達] 資料包已到達目的地")
     
     def _log(self, message: str):
-        """添加日誌"""
+        """添加日誌（線程安全）"""
         timestamp = time.strftime("%H:%M:%S", time.localtime())
-        self.log_text.insert(tk.END, f"[{timestamp}] {message}\n")
-        self.log_text.see(tk.END)
+        # 使用 after 確保在主線程中更新 GUI
+        self.root.after(0, lambda: self._log_unsafe(f"[{timestamp}] {message}\n"))
+    
+    def _log_unsafe(self, message: str):
+        """內部方法：直接更新日誌（僅在主線程調用）"""
+        try:
+            self.log_text.insert(tk.END, message)
+            self.log_text.see(tk.END)
+        except Exception as e:
+            print(f"日誌更新錯誤: {e}")
     
     def _update_state_labels(self):
         """更新狀態標籤"""
@@ -502,8 +597,9 @@ class TCPSimulatorGUI:
             while True:
                 try:
                     self.simulator.update()
-                    self._update_state_labels()
-                    self._update_stats()
+                    # 在主線程中更新 GUI 組件
+                    self.root.after(0, self._update_state_labels)
+                    self.root.after(0, self._update_stats)
                     
                     # 每0.5秒自動刷新圖表一次（如果數據有變化）
                     current_time = time.time()
@@ -512,12 +608,19 @@ class TCPSimulatorGUI:
                         self.root.after(0, self._update_charts)
                         last_chart_update = current_time
                     
-                    time.sleep(0.1)
+                    time.sleep(0.05)  # 減少延遲，提高響應速度
                 except Exception as e:
                     # 打印錯誤以便調試
                     import traceback
+                    error_msg = f"更新循環錯誤: {e}"
+                    print(error_msg)
                     traceback.print_exc()
-                    pass
+                    # 只在主線程中記錄錯誤
+                    try:
+                        self.root.after(0, lambda msg=error_msg: self._log_unsafe(f"[錯誤] {msg}\n"))
+                    except:
+                        pass
+                    time.sleep(0.1)  # 發生錯誤時稍作延遲
         
         self.update_thread = threading.Thread(target=update, daemon=True)
         self.update_thread.start()

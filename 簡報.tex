@@ -1,202 +1,240 @@
-\documentclass[12pt]{beamer}
+\documentclass[aspectratio=169]{beamer}
+\usetheme{metropolis}
 
-\usetheme{Madrid}
-\usecolortheme{default}
-\setbeamertemplate{navigation symbols}{}
+%===============================
+% 字體設定（Windows）
+%===============================
+\usepackage{xeCJK}
+\usepackage{fontspec}
 
-\title{TCP 擁塞控制與封包行為的數學模型可視化研究}
-\author{Your Name}
-\date{\today}
+\setCJKmainfont{Microsoft JhengHei}[
+  BoldFont=Microsoft JhengHei Bold,
+  AutoFakeSlant=true
+]
+\setmainfont{Times New Roman}
+\setsansfont{Arial}
+
+%===============================
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{enumitem}
+
+%===============================
+\title{
+{\small 2025 校際應用數學學生研討會} \\
+TCP Reno 擁塞控制行為之模擬與視覺化分析
+}
+
+\author{報告人：簡偉恆}
+\date{2025/12/21(日)}
 
 \begin{document}
 
-%===========================================================
-\begin{frame}
-  \titlepage
-\end{frame}
-%===========================================================
+%===============================
+\maketitle
+%===============================
 
-%===========================================================
-\begin{frame}{研究主題}
-本研究目標是以數學方式重建 TCP 行為，並透過模擬器與圖表可視化顯示：
-\begin{itemize}
-    \item 三次握手與封包傳輸流程
-    \item 擁塞控制（Slow Start / Congestion Avoidance）
-    \item 不同網路條件下的 CWND 與 SSTHRESH 成長
-    \item 封包遺失（Bernoulli）對 TCP 的影響
-    \item GUI 即時可視化與測試後產生圖表
-\end{itemize}
-\end{frame}
-%===========================================================
+%==========================================================
+\begin{frame}{學習背景與目的}
+\centering
+目標：
 
-%===========================================================
-\begin{frame}{TCP 的數學形式化：有限狀態機 (FSM)}
-\begin{itemize}
-    \item TCP 狀態集合：
-    \[
-    S=\{CLOSED, LISTEN, SYN\_SENT, SYN\_RECEIVED, ESTABLISHED, \dots\}
-    \]
-    \item 狀態轉移函數：
-    \[
-    \delta : S \times E \to S
-    \]
-    \item 可完整分析：
-    \begin{itemize}
-        \item SYN 丟失
-        \item 半開連線 (Half-open)
-        \item DDoS 對握手的影響
-    \end{itemize}
-\end{itemize}
-\end{frame}
-%===========================================================
-
-%===========================================================
-\begin{frame}{擁塞控制的數學模型}
-\textbf{Slow Start}：
-\[
-cwnd = cwnd + 1
-\]
-
-\textbf{Congestion Avoidance}：
-\[
-cwnd = cwnd + \frac{1}{cwnd}
-\]
-
-\textbf{Loss 時}：
-\[
-ssthresh = \frac{cwnd}{2},\quad cwnd \to 1
-\]
-
-\begin{itemize}
-    \item 使 TCP 在無壅塞時快速成長
-    \item 一旦偵測壅塞則降低速率以避免崩潰
-\end{itemize}
-\end{frame}
-%===========================================================
-
-%===========================================================
-\begin{frame}{封包遺失的機率模型：Bernoulli 分佈}
-每一個封包的遺失建模為：
-\[
-X \sim Bernoulli(p)
-\]
-
-若 $X=1$（封包遺失）則：
-\begin{itemize}
-    \item cwnd 快速下降
-    \item ssthresh 下修
-    \item TCP 回到 Slow Start
+\begin{itemize}[label=$\bullet$]
+    \item \textbf{依據程榮祥（2001）碩士論文之研究中對 TCP Reno 的描述，重現其核心擁塞控制行為}
+    \item 將論文中以數學分析與示意圖呈現的 Reno 機制，轉為可操作的程式模擬流程
+    \item 透過模擬觀察 \texttt{cwnd}、\texttt{ssthresh} 與封包遺失事件之動態演化
 \end{itemize}
 
-此模型使我們能以數學方式研究攻擊或網路品質下降。
 \end{frame}
-%===========================================================
+    
 
-%===========================================================
-\begin{frame}{模擬器架構}
-本研究實作三層式 TCP 模擬器：
+%==========================================================
+\begin{frame}{定位}
+\centering
 
-\begin{enumerate}
-    \item \textbf{Network Layer}
-        \begin{itemize}
-            \item 延遲 (delay)
-            \item 頻寬 (bandwidth)
-            \item 封包遺失 (Bernoulli loss)
-        \end{itemize}
+\begin{itemize}[label=$\bullet$]
+    \item 以 Python 重建 TCP Reno 模型
+    \item 視覺化呈現四大階段：SS、CA、FR、Timeout
+    \item 驗證行為是否與理論一致
+\end{itemize}
 
-    \item \textbf{TCP Connection Layer}
-        \begin{itemize}
-            \item 三次握手
-            \item FSM 狀態轉換
-            \item cwnd / ssthresh 更新
-            \item ACK、重傳邏輯（可擴展）
-        \end{itemize}
+\vspace{0.5cm}
+著重於重現，不涉新演算法。
+\end{frame}
 
-    \item \textbf{Simulator (DES)}
-        \begin{itemize}
-            \item 離散事件系統（Future Event List）
-            \item 封包排程與到達時間
-        \end{itemize}
+%==========================================================
+\begin{frame}{主要成果}
+以 Python 建立 TCP 傳輸流程與擁塞控制模擬器，重現 TCP Reno 四大核心行為：
+
+\begin{enumerate}[label=(\arabic*)]
+\item \textbf{Slow Start}：\(cwnd\) 指數成長
+\item \textbf{Congestion Avoidance}：超過 \(ssthresh\) 後線性成長
+\item \textbf{Fast Retransmit}：三次重複 ACK 偵測封包遺失
+\item \textbf{Fast Recovery}：\(cwnd\) 部分下降、快速恢復
+\end{enumerate}
+
+Reno 行為成功被可視化，有助教學及後續比較 CUBIC、BBR 等演算法
+\end{frame}
+
+%==========================================================
+\begin{frame}{Slow Start：指數成長}
+初始設定： \(cwnd = 1\)。
+
+每收到一個 ACK：
+
+\[
+cwnd \gets cwnd + 1
+\]
+
+每個 RTT：
+
+\[
+cwnd \approx 2^k
+\]
+
+呈現指數級膨脹，直到 \(cwnd = ssthresh\) 為止。
+\end{frame}
+
+%==========================================================
+\begin{frame}{Congestion Avoidance：線性成長}
+當 \(cwnd \ge ssthresh\)：
+
+\[
+cwnd \gets cwnd + \frac{1}{cwnd}
+\]
+
+每個 RTT 約成長 \(+1\) MSS。
+
+呈現穩定、線性的成長。
+\end{frame}
+
+%==========================================================
+\begin{frame}{Fast Retransmit 與 Fast Recovery}
+若收到 \textbf{三次重複 ACK}：
+
+\[
+ssthresh = \frac{cwnd}{2},\qquad cwnd = ssthresh
+\]
+
+若發生 timeout：
+
+\[
+cwnd = 1,\qquad ssthresh = \frac{ssthresh}{2}
+\]
+
+Timeout 的懲罰比 Fast Retransmit 更重。
+\end{frame}
+
+%==========================================================
+\begin{frame}{模擬流程架構}
+實作 TCP 的核心流程：
+
+\begin{itemize}[label=$\bullet$]
+\item 三次握手、封包傳輸、ACK 機制
+\item 可調整延遲（latency）、丟包率（loss）、頻寬（bandwidth）
+\item 即時顯示：\(cwnd\)、\(ssthresh\)、封包事件
+\end{itemize}
+
+\begin{center}
+\begin{tabularx}{0.95\textwidth}{|c|X|}
+\hline
+模組 & 功能描述 \\
+\hline
+Connection & SEQ、ACK、封包收發 \\
+\hline
+Simulator & 時間軸事件、延遲、丟包 \\
+\hline
+Reno Engine & Slow Start、CA、Fast Retransmit、Timeout \\
+\hline
+GUI & 即時曲線視覺化 \\
+\hline
+\end{tabularx}
+\end{center}
+\end{frame}
+
+%==========================================================
+\begin{frame}{無丟包情況}
+\begin{center}
+\includegraphics[width=0.8\textwidth]{img/reno0_pic.png}
+\end{center}
+\end{frame}
+
+%==========================================================
+\begin{frame}{有丟包情況(10\%)}
+\begin{center}
+\includegraphics[width=0.8\textwidth]{img/reno_10.png}
+\end{center}
+
+\end{frame}
+
+%==========================================================
+\begin{frame}{數學觀點：離散動力系統}
+TCP Reno 可視為狀態轉換系統：
+
+\[
+S \xrightarrow{f} S'
+\]
+
+其中 \(f\) 為封包事件（ACK／loss／timeout）。
+
+其結構對應：
+
+\begin{itemize}[label=$\bullet$]
+\item \(cwnd\)：控制變數
+\item \(ssthresh\)：分段條件（piecewise condition）
+\item duplicate ACK：局部 reset
+\item timeout：全域 reset
+\end{itemize}
+
+呈現與離散動力系統相近的遞迴行為。
+\end{frame}
+
+%==========================================================
+\begin{frame}{動機}
+\begin{itemize}[label=$\bullet$]
+\item 多數教材以靜態圖示呈現 TCP，難以理解動態邏輯
+\item 希望重建真實的 cwnd 與 ssthresh 時間演化
+\item 探索「數學模型」與「網路行為」的結構相似性
+\item 建立未來比較 CUBIC、BBR 等演算法的平台
+\end{itemize}
+\end{frame}
+
+%==========================================================
+\begin{frame}{總結}
+\centering
+\begin{enumerate}[label=$\bullet$]
+\item 成功以模擬器重現 TCP Reno 的動態行為
+\item 可即時觀察 \(cwnd\)、\(ssthresh\)、loss 時間點
+\item 模型與理論一致
+\item 可延伸至 CUBIC / BBR 等現代演算法研究
 \end{enumerate}
 \end{frame}
-%===========================================================
 
-%===========================================================
-\begin{frame}{結果展示：無封包遺失}
-\begin{itemize}
-    \item ssthresh 為水平線：無 loss → 不下降
-    \item cwnd 前段快速上升：Slow Start
-    \item cwnd 達 ssthresh 後轉為線性成長：Congestion Avoidance
-\end{itemize}
-
-此行為與 TCP Reno 模型完全一致，驗證模擬器正確性。
+%==========================================================
+\begin{frame}{References}
+    \footnotesize
+    
+    [1]  程榮祥（2001）。《TCP 擁塞控制之效能改進》。  
+    國立成功大學資訊工程研究所碩士論文。
+    
+    \vspace{0.8em}
+    
+    [2]Jacobson, V. (1988). \textit{Congestion Avoidance and Control}. 
+    ACM SIGCOMM Computer Communication Review.
+    
+    \vspace{0.8em}
+    
+    [3] Jerry Banks、John S. Carson II、Barry L. Nelson、David M. Nicol 著，  
+    肖田元、范文慧 譯（2008）。《離散事件系統仿真（原書第 4 版）》。  
+    北京：機械工業出版社。
+    
+    \vspace{0.8em}
+    
+    [4] Postel, J. (1981). \textit{RFC 793: Transmission Control Protocol}.  
+    Internet Engineering Task Force (IETF).
+    
 \end{frame}
-%===========================================================
 
-%===========================================================
-\begin{frame}{結果展示：輕度封包遺失}
-\begin{itemize}
-    \item cwnd 產生明顯掉落
-    \item ssthresh 下修至 cwnd / 2
-    \item TCP 重新進入 Slow Start → 再進入 CA
-\end{itemize}
-
-可視化出 loss 對 TCP 傳輸效率的直接影響。
-\end{itemize}
-\end{frame}
-%===========================================================
-
-%===========================================================
-\begin{frame}{結果展示：延遲與頻寬的影響}
-\begin{itemize}
-    \item 高延遲 → RTT 增加 → cwnd 成長速度變慢
-    \item 低頻寬 → 傳輸時間上升 → ACK 回來變慢
-    \item 整體 throughput 明顯下降
-\end{itemize}
-
-顯示出網路環境與 TCP 數學行為之間的關聯性。
-\end{frame}
-%===========================================================
-
-%===========================================================
-\begin{frame}{三次握手封包遺失分析}
-\begin{itemize}
-    \item SYN 丟失 → Client 需重傳（模擬器目前無 RTO）
-    \item SYN/ACK 丟失 → Server 重傳（模擬器目前無 RTO）
-    \item ACK 丟失 → Server 重傳 SYN/ACK（模擬器目前無 RTO）
-\end{itemize}
-
-重傳計時器（RTO）是 TCP 的核心機制，未來可加入模擬器中以強化真實性。
-\end{itemize}
-\end{frame}
-%===========================================================
-
-%===========================================================
-\begin{frame}{研究貢獻}
-\begin{itemize}
-    \item 建立 TCP 擁塞控制的完整數學模型
-    \item 實作基於 DES 的 TCP 模擬平台
-    \item 以 GUI 即時視覺化三次握手與封包行為
-    \item 自動產生 CWND / SSTHRESH 圖表供研究使用
-    \item 建立可用於教學、資安分析、性能比較的基礎系統
-\end{itemize}
-\end{frame}
-%===========================================================
-
-%===========================================================
-\begin{frame}{研究動機（結尾）}
-TCP 是網路世界的基礎協定，但其內部行為難以直接觀察。
-
-本研究希望：
-\begin{itemize}
-    \item 讓 TCP 不再是黑盒子，而是可分析的數學系統
-    \item 以模型精準理解擁塞、攻擊（loss）、環境變化的影響
-    \item 建立可視化工具協助教學與資安研究
-\end{itemize}
-
-\centering
-\textbf{透過數學，我們能真正理解網路。}
-\end{frame}
-%===========================================================
-
+%==========================================================
 \end{document}
